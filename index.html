@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171a18">
+  <title>CAN Speed Lab | ECU Simulator</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+    :root {
+      color-scheme: dark;
+      --ink: #edf0e9;
+      --muted: #8c938b;
+      --quiet: #5f665f;
+      --panel: #202421;
+      --panel-raised: #262b27;
+      --line: #373d38;
+      --acid: #c5f36b;
+      --orange: #ff9a61;
+      --red: #ff6868;
+      --mono: 'DM Mono', 'SFMono-Regular', Consolas, monospace;
+      --sans: 'Manrope', 'Avenir Next', 'Segoe UI', sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      color: var(--ink);
+      background-color: #171a18;
+      background-image: linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+      background-size: 32px 32px;
+      font-family: var(--sans);
+    }
+
+    button, input { font: inherit; }
+
+    .app-shell { max-width: 1440px; margin: 0 auto; padding: 28px 40px 32px; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--acid); color: var(--acid); font: 500 11px var(--mono); letter-spacing: 0; }
+    .brand-name { font-size: 13px; font-weight: 800; letter-spacing: 0; }
+    .brand-sub { margin-top: 3px; color: var(--muted); font: 10px var(--mono); letter-spacing: 0; }
+    .top-meta { display: flex; align-items: center; gap: 22px; color: var(--muted); font: 10px var(--mono); letter-spacing: 0; }
+    .mode-label { display: flex; align-items: center; gap: 8px; color: var(--acid); }
+    .mode-dot, .status-light { width: 7px; height: 7px; border-radius: 50%; background: var(--acid); box-shadow: 0 0 12px rgba(197,243,107,.55); }
+
+    .page-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 34px 0 26px; }
+    .eyebrow { color: var(--orange); font: 10px var(--mono); letter-spacing: 0; text-transform: uppercase; }
+    h1 { margin: 8px 0 0; font-size: clamp(24px, 3vw, 36px); line-height: 1.12; letter-spacing: 0; }
+    .page-note { max-width: 300px; color: var(--muted); font-size: 12px; line-height: 1.6; text-align: right; }
+
+    .dashboard { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(350px, .85fr); border: 1px solid var(--line); background: rgba(25,29,26,.88); }
+    .source-panel { min-width: 0; padding: 25px 28px 27px; border-right: 1px solid var(--line); }
+    .monitor-panel { min-width: 0; padding: 25px 25px 22px; }
+
+    .section-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+    .section-title { color: #b6bdb5; font: 10px var(--mono); letter-spacing: 0; text-transform: uppercase; }
+    .section-index { color: var(--quiet); font: 10px var(--mono); }
+
+    .ecu-stage { display: grid; grid-template-columns: 1fr 132px 1fr; align-items: center; min-height: 184px; margin: 22px 0 24px; padding: 16px 0; }
+    .node-label { color: var(--muted); font: 9px var(--mono); letter-spacing: 0; text-transform: uppercase; }
+    .ecu-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .ecu-box { position: relative; width: 86px; height: 69px; display: grid; place-items: center; border: 1px solid #59605a; background: linear-gradient(135deg, #303631, #202421 70%); box-shadow: 7px 7px 0 #121513; }
+    .ecu-box::before, .ecu-box::after { position: absolute; left: 10px; right: 10px; height: 3px; content: ''; background: repeating-linear-gradient(90deg, #737c73 0 2px, transparent 2px 6px); }
+    .ecu-box::before { top: -4px; }
+    .ecu-box::after { bottom: -4px; }
+    .ecu-chip { width: 31px; height: 31px; display: grid; place-items: center; border: 1px solid #677268; color: var(--acid); font: 9px var(--mono); }
+    .ecu-name { color: var(--ink); font-size: 11px; font-weight: 700; }
+    .ecu-state { display: flex; align-items: center; gap: 6px; color: var(--muted); font: 9px var(--mono); }
+    .ecu-state .status-light { width: 5px; height: 5px; }
+    .bus-connection { position: relative; height: 38px; display: flex; flex-direction: column; justify-content: center; gap: 7px; }
+    .bus-wire { height: 2px; background: var(--line); transition: background .2s, box-shadow .2s; }
+    .bus-wire.active { background: var(--acid); box-shadow: 0 0 9px rgba(197,243,107,.48); }
+    .bus-packet { position: absolute; top: 7px; left: 0; width: 7px; height: 7px; background: var(--acid); opacity: 0; }
+    .bus-packet.running { opacity: 1; animation: travel 1.25s linear infinite; }
+    @keyframes travel { from { left: 0; } to { left: calc(100% - 7px); } }
+    .bus-caption { position: absolute; top: -17px; left: 0; width: 100%; color: var(--quiet); font: 8px var(--mono); text-align: center; }
+    .cluster-wrap { justify-self: end; text-align: center; }
+    .mini-cluster { position: relative; width: 81px; height: 70px; margin: 0 auto 10px; overflow: hidden; border: 1px solid #59605a; border-radius: 42px 42px 5px 5px; background: #1c201d; }
+    .mini-cluster::before { position: absolute; inset: 9px 10px 0; border: 1px solid #474e48; border-bottom: 0; border-radius: 38px 38px 0 0; content: ''; }
+    .cluster-number { position: absolute; top: 25px; left: 0; width: 100%; color: var(--acid); font: 17px var(--mono); }
+    .cluster-unit { position: absolute; top: 47px; left: 0; width: 100%; color: var(--muted); font: 8px var(--mono); }
+
+    .speed-control { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 8px 18px; padding: 20px 0 22px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .speed-label { color: var(--muted); font: 10px var(--mono); text-transform: uppercase; }
+    .speed-readout { display: flex; align-items: baseline; gap: 9px; }
+    .speed-value { min-width: 114px; color: var(--ink); font: 500 55px/.95 var(--mono); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+    .speed-unit { color: var(--muted); font: 11px var(--mono); }
+    .range-wrap { grid-column: 1 / -1; padding-top: 5px; }
+    input[type="range"] { width: 100%; height: 4px; display: block; margin: 0; appearance: none; background: linear-gradient(90deg, var(--acid) var(--progress, 45%), #414741 var(--progress, 45%)); cursor: pointer; }
+    input[type="range"]::-webkit-slider-thumb { width: 14px; height: 14px; appearance: none; border: 2px solid #171a18; border-radius: 50%; background: var(--acid); box-shadow: 0 0 0 1px var(--acid); }
+    input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px solid #171a18; border-radius: 50%; background: var(--acid); box-shadow: 0 0 0 1px var(--acid); }
+    .range-scale { display: flex; justify-content: space-between; margin-top: 9px; color: var(--quiet); font: 9px var(--mono); }
+
+    .source-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-top: 19px; }
+    .signal-meta { display: flex; gap: 23px; }
+    .meta-item { display: flex; flex-direction: column; gap: 5px; }
+    .meta-key { color: var(--quiet); font: 8px var(--mono); text-transform: uppercase; }
+    .meta-value { color: #c9d0c8; font: 10px var(--mono); }
+    .stream-button { min-width: 127px; height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 0 14px; border: 1px solid var(--acid); background: var(--acid); color: #1a2015; cursor: pointer; font-size: 10px; font-weight: 800; letter-spacing: 0; text-transform: uppercase; transition: background .15s, color .15s; }
+    .stream-button:hover { background: #d7ff8e; }
+    .stream-button.stop { border-color: #65705f; background: transparent; color: var(--ink); }
+    .play-icon { width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 7px solid currentColor; }
+    .stop-icon { width: 8px; height: 8px; background: currentColor; }
+
+    .monitor-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .monitor-state { display: flex; align-items: center; gap: 7px; color: var(--muted); font: 9px var(--mono); }
+    .monitor-state .status-light { width: 5px; height: 5px; background: #667067; box-shadow: none; }
+    .monitor-state.live { color: var(--acid); }
+    .monitor-state.live .status-light { background: var(--acid); box-shadow: 0 0 10px rgba(197,243,107,.5); }
+    .log-table { margin-top: 24px; }
+    .log-columns, .log-row { display: grid; grid-template-columns: 66px minmax(104px, 1fr) 68px; align-items: center; gap: 8px; }
+    .log-columns { padding: 0 10px 10px; border-bottom: 1px solid var(--line); color: var(--quiet); font: 8px var(--mono); text-transform: uppercase; }
+    .log-row { min-height: 45px; padding: 0 10px; border-bottom: 1px solid rgba(55,61,56,.68); color: #c8cec7; font: 9px var(--mono); animation: row-in .24s ease-out both; }
+    .log-row:first-child { color: var(--acid); }
+    .log-signal { overflow: hidden; color: #aeb6ad; text-overflow: ellipsis; white-space: nowrap; }
+    .log-speed { color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+    @keyframes row-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+    .empty-log { min-height: 226px; display: grid; place-items: center; color: var(--quiet); font: 10px var(--mono); text-align: center; }
+    .empty-mark { display: block; width: 25px; height: 25px; margin: 0 auto 12px; border: 1px solid #444c45; border-radius: 50%; position: relative; }
+    .empty-mark::before, .empty-mark::after { position: absolute; top: 11px; left: 5px; width: 13px; height: 1px; background: #697169; content: ''; }
+    .empty-mark::after { transform: rotate(90deg); }
+    .log-footer { display: flex; justify-content: space-between; margin-top: 15px; color: var(--quiet); font: 8px var(--mono); }
+
+    .safety-note { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 12px 14px; border: 1px solid #3d443d; color: #a4aca3; font-size: 10px; line-height: 1.5; }
+    .note-mark { flex: 0 0 15px; width: 15px; height: 15px; display: grid; place-items: center; border: 1px solid var(--orange); border-radius: 50%; color: var(--orange); font: 9px var(--mono); }
+    .safety-note strong { color: #d3d9d1; font-weight: 700; }
+    .bottomline { display: flex; justify-content: space-between; gap: 16px; padding-top: 22px; color: var(--quiet); font: 8px var(--mono); letter-spacing: 0; text-transform: uppercase; }
+
+    @media (max-width: 900px) {
+      .app-shell { padding: 22px 24px 28px; }
+      .dashboard { grid-template-columns: 1fr; }
+      .source-panel { border-right: 0; border-bottom: 1px solid var(--line); }
+      .monitor-panel { min-height: 360px; }
+    }
+
+    @media (max-width: 520px) {
+      .app-shell { padding: 18px 14px 22px; }
+      .topbar { padding-bottom: 17px; }
+      .top-meta { gap: 10px; font-size: 8px; }
+      .top-meta > span:last-child { display: none; }
+      .page-heading { align-items: start; flex-direction: column; gap: 9px; padding: 25px 0 19px; }
+      .page-note { max-width: 100%; text-align: left; }
+      .source-panel, .monitor-panel { padding: 19px 16px; }
+      .ecu-stage { grid-template-columns: 1fr 88px 1fr; min-height: 164px; }
+      .speed-value { min-width: 100px; font-size: 49px; }
+      .source-footer { align-items: start; flex-direction: column; }
+      .signal-meta { width: 100%; justify-content: space-between; }
+      .stream-button { width: 100%; }
+      .log-columns, .log-row { grid-template-columns: 58px minmax(85px, 1fr) 60px; gap: 5px; padding-right: 6px; padding-left: 6px; }
+      .bottomline { flex-direction: column; gap: 7px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">CAN</div>
+        <div>
+          <div class="brand-name">CAN SPEED LAB</div>
+          <div class="brand-sub">BENCH SIMULATOR / 01</div>
+        </div>
+      </div>
+      <div class="top-meta">
+        <span class="mode-label"><span class="mode-dot"></span>SIMULATION MODE</span>
+        <span>LOCAL SESSION</span>
+      </div>
+    </header>
+
+    <section class="page-heading" aria-labelledby="page-title">
+      <div>
+        <div class="eyebrow">Signal bench / vehicle dynamics</div>
+        <h1 id="page-title">Vehicle speed ECU</h1>
+      </div>
+      <div class="page-note">Adjust the signal value and watch the simulated bus update in real time.</div>
+    </section>
+
+    <section class="dashboard" aria-label="Vehicle speed ECU simulator">
+      <section class="source-panel" aria-labelledby="ecu-heading">
+        <div class="section-head">
+          <h2 class="section-title" id="ecu-heading">01 / Signal source</h2>
+          <span class="section-index">ECU-A</span>
+        </div>
+
+        <div class="ecu-stage" aria-label="Visual ECU connected to a simulated bus and instrument cluster">
+          <div class="ecu-wrap">
+            <div class="ecu-box" aria-hidden="true"><div class="ecu-chip">ECU</div></div>
+            <div class="ecu-name">Speed ECU</div>
+            <div class="ecu-state"><span class="status-light"></span><span id="ecuState">STANDBY</span></div>
+          </div>
+          <div class="bus-connection" aria-hidden="true">
+            <div class="bus-caption">SIMULATED BUS</div>
+            <div class="bus-wire" id="wireHigh"></div>
+            <div class="bus-wire" id="wireLow"></div>
+            <div class="bus-packet" id="packet"></div>
+          </div>
+          <div class="cluster-wrap">
+            <div class="mini-cluster" aria-hidden="true">
+              <div class="cluster-number" id="clusterSpeed">0</div>
+              <div class="cluster-unit">km/h</div>
+            </div>
+            <div class="node-label">Display node</div>
+          </div>
+        </div>
+
+        <div class="speed-control">
+          <div class="speed-label">Vehicle speed</div>
+          <div class="speed-readout"><output class="speed-value" id="speedValue" for="speedSlider">0</output><span class="speed-unit">km/h</span></div>
+          <div class="range-wrap">
+            <input id="speedSlider" type="range" min="0" max="240" step="1" value="0" aria-label="Vehicle speed in kilometers per hour">
+            <div class="range-scale"><span>0</span><span>60</span><span>120</span><span>180</span><span>240 km/h</span></div>
+          </div>
+        </div>
+
+        <div class="source-footer">
+          <div class="signal-meta" aria-label="Signal configuration">
+            <div class="meta-item"><span class="meta-key">Signal</span><span class="meta-value">VEH_SPEED</span></div>
+            <div class="meta-item"><span class="meta-key">Interval</span><span class="meta-value">500 ms</span></div>
+            <div class="meta-item"><span class="meta-key">Unit</span><span class="meta-value">km/h</span></div>
+          </div>
+          <button class="stream-button" id="streamButton" type="button"><span class="play-icon" aria-hidden="true"></span><span id="buttonLabel">Start stream</span></button>
+        </div>
+      </section>
+
+      <section class="monitor-panel" aria-labelledby="monitor-heading">
+        <div class="monitor-head">
+          <h2 class="section-title" id="monitor-heading">02 / Message monitor</h2>
+          <div class="monitor-state" id="monitorState"><span class="status-light"></span><span>PAUSED</span></div>
+        </div>
+
+        <div class="log-table" role="table" aria-label="Simulated vehicle speed messages">
+          <div class="log-columns" role="row"><span role="columnheader">Time</span><span role="columnheader">Signal</span><span role="columnheader" style="text-align:right">Value</span></div>
+          <div id="logRows" aria-live="polite">
+            <div class="empty-log" id="emptyLog"><div><span class="empty-mark" aria-hidden="true"></span>Waiting for stream<br>Start ECU to emit updates</div></div>
+          </div>
+        </div>
+        <div class="log-footer"><span>LOCAL EVENT LOG</span><span><span id="messageCount">0</span> UPDATES</span></div>
+      </section>
+    </section>
+
+    <aside class="safety-note"><span class="note-mark" aria-hidden="true">i</span><span><strong>Simulation only.</strong> This page generates local UI updates only. It does not open a SocketCAN interface, create CAN frames, or connect to a vehicle.</span></aside>
+    <footer class="bottomline"><span>CAN SPEED LAB / PROTOTYPE</span><span>NO HARDWARE CONNECTION</span><span>SESSION <span id="sessionId">----</span></span></footer>
+  </main>
+
+  <script>
+    const speedSlider = document.getElementById('speedSlider');
+    const speedValue = document.getElementById('speedValue');
+    const clusterSpeed = document.getElementById('clusterSpeed');
+    const streamButton = document.getElementById('streamButton');
+    const buttonLabel = document.getElementById('buttonLabel');
+    const ecuState = document.getElementById('ecuState');
+    const monitorState = document.getElementById('monitorState');
+    const logRows = document.getElementById('logRows');
+    const emptyLog = document.getElementById('emptyLog');
+    const messageCount = document.getElementById('messageCount');
+    const packet = document.getElementById('packet');
+    const wires = [document.getElementById('wireHigh'), document.getElementById('wireLow')];
+
+    let timer = null;
+    let sequence = 0;
+    speedSlider.value = String(Math.round(Math.random() * 120));
+
+    function renderSpeed() {
+      const speed = Number(speedSlider.value);
+      speedValue.value = String(speed);
+      speedValue.textContent = String(speed);
+      clusterSpeed.textContent = String(speed);
+      speedSlider.style.setProperty('--progress', `${(speed / Number(speedSlider.max)) * 100}%`);
+    }
+
+    function addMessage() {
+      sequence += 1;
+      emptyLog.remove();
+      const time = new Intl.DateTimeFormat(undefined, { minute: '2-digit', second: '2-digit', fractionalSecondDigits: 1 }).format(new Date());
+      const row = document.createElement('div');
+      row.className = 'log-row';
+      row.setAttribute('role', 'row');
+      row.innerHTML = `<span role="cell">${time}</span><span class="log-signal" role="cell">VEH_SPEED <span style="color:var(--quiet)">#${String(sequence).padStart(3, '0')}</span></span><span class="log-speed" role="cell">${speedSlider.value} km/h</span>`;
+      logRows.prepend(row);
+      while (logRows.children.length > 6) logRows.lastElementChild.remove();
+      messageCount.textContent = String(sequence);
+      packet.classList.remove('running');
+      void packet.offsetWidth;
+      packet.classList.add('running');
+    }
+
+    function setStreaming(active) {
+      if (active) {
+        addMessage();
+        timer = window.setInterval(addMessage, 500);
+        streamButton.classList.add('stop');
+        streamButton.innerHTML = '<span class="stop-icon" aria-hidden="true"></span><span>Stop stream</span>';
+        ecuState.textContent = 'STREAMING';
+        monitorState.classList.add('live');
+        monitorState.lastElementChild.textContent = 'LIVE';
+        wires.forEach((wire) => wire.classList.add('active'));
+      } else {
+        window.clearInterval(timer);
+        timer = null;
+        streamButton.classList.remove('stop');
+        streamButton.innerHTML = '<span class="play-icon" aria-hidden="true"></span><span>Start stream</span>';
+        ecuState.textContent = 'STANDBY';
+        monitorState.classList.remove('live');
+        monitorState.lastElementChild.textContent = 'PAUSED';
+        wires.forEach((wire) => wire.classList.remove('active'));
+        packet.classList.remove('running');
+      }
+    }
+
+    speedSlider.addEventListener('input', renderSpeed);
+    streamButton.addEventListener('click', () => setStreaming(timer === null));
+    document.getElementById('sessionId').textContent = Math.random().toString(16).slice(2, 6).toUpperCase();
+    renderSpeed();
+  </script>
+</body>
+</html>
